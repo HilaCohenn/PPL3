@@ -15,6 +15,7 @@ import { Result, makeFailure, bind, makeOk, zipWithResult } from '../shared/resu
 import { parse as p } from "../shared/parser";
 import { format } from '../shared/format';
 
+
 // Purpose: Check that type expressions are equivalent
 // as part of a fully-annotated type check process of exp.
 // Return an error if the types are different - true otherwise.
@@ -226,8 +227,10 @@ export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
 // Purpose: compute the type of a program
 // Typing rule:
 // TODO - write the true definition
-export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
+export const L5programTypeof = (exp: Program, tenv: TEnv): Result<TExp> =>
     typeofSeq(exp.exps, tenv);
+
+
 
 export const typeofSeq = (exps: List<Exp>, tenv: TEnv): Result<TExp> => {
     if (!isNonEmptyList<Exp>(exps)) {

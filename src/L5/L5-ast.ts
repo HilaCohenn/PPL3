@@ -191,7 +191,9 @@ const parseL5GoodProgram = (keyword: Sexp, body: Sexp[]): Result<Program> =>
 export const parseL5Exp = (sexp: Sexp): Result<Exp> =>
     isNonEmptyList<Sexp>(sexp) ? parseL5CompoundExp(first(sexp), rest(sexp)) :
     isToken(sexp) ? parseL5Atomic(sexp) :
-    makeFailure("Exp cannot be an empty list");
+    (isArray(sexp) && sexp.length === 2 && sexp[0] === "'")
+        ? parseL5CompoundExp("quote", [sexp[1]])
+        : makeFailure("Exp cannot be an empty list");
 
 export const parseL5CompoundExp = (op: Sexp, params: Sexp[]): Result<Exp> =>
     op === "define" ? parseDefine(params) :
@@ -236,7 +238,9 @@ export const parseL5Atomic = (token: Token): Result<AtomicExp> =>
 export const parseL5CExp = (sexp: Sexp): Result<CExp> =>
     isNonEmptyList<Sexp>(sexp) ? parseL5CompoundCExp(first(sexp), rest(sexp)) :
     isToken(sexp) ? parseL5Atomic(sexp) :
-    makeFailure("CExp cannot be an empty list");
+    (isArray(sexp) && sexp.length === 2 && sexp[0] === "'")
+        ? parseL5CompoundCExp("quote", [sexp[1]])
+        : makeFailure("CExp cannot be an empty list");
 
 const parseAppExp = (op: Sexp, params: Sexp[]): Result<AppExp> =>
     bind(parseL5CExp(op), (rator: CExp) =>
