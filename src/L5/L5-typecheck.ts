@@ -53,6 +53,7 @@ export const typeofExp = (exp: Parsed, tenv: TEnv): Result<TExp> =>
     isLetrecExp(exp) ? typeofLetrec(exp, tenv) :
     isDefineExp(exp) ? typeofDefine(exp, tenv) :
     isProgram(exp) ? typeofProgram(exp, tenv) :
+    isQuoteExp(exp) ? typeofQuote(exp) :
     // TODO: isSetExp(exp) isLitExp(exp)
     makeFailure(`Unknown type: ${format(exp)}`);
 
@@ -228,7 +229,7 @@ export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
 export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
     typeofSeq(exp.exps, tenv);
 
-const typeofSeq = (exps: List<Exp>, tenv: TEnv): Result<TExp> => {
+export const typeofSeq = (exps: List<Exp>, tenv: TEnv): Result<TExp> => {
     if (!isNonEmptyList<Exp>(exps)) {
         return makeFailure("Unexpected empty list of expressions");
     }
