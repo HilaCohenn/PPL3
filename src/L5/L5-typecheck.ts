@@ -212,10 +212,10 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
 // Typing rule:
 //   (define (var : texp) val)
 // TODO - write the true definition
-export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> => {
-    // return Error("TODO");
-    return makeOk(makeVoidTExp());
-};
+export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
+    bind(typeofExp(exp.val, tenv), (valTE: TExp) =>
+        bind(checkEqualType(exp.var.texp, valTE, exp), (_ok: true) =>
+            makeOk(makeVoidTExp())));
 
 // Purpose: compute the type of a program
 // Typing rule:
