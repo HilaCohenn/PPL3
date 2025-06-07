@@ -1,7 +1,7 @@
 // L5-typecheck
 // ========================================================
 import { equals, is, map, zipWith } from 'ramda';
-import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNumExp,
+import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isQuoteExp, isNumExp,
          isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parseL5Exp, unparse,
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
          Parsed, PrimOp, ProcExp, Program, StrExp, 
@@ -9,11 +9,12 @@ import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNum
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp,
-         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp } from "./TExp";
+         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, makePairTExp } from "./TExp";
 import { isEmpty, allT, first, rest, NonEmptyList, List, isNonEmptyList } from '../shared/list';
 import { Result, makeFailure, bind, makeOk, zipWithResult } from '../shared/result';
 import { parse as p } from "../shared/parser";
 import { format } from '../shared/format';
+import { isCompoundSExp, isEmptySExp, isSymbolSExp } from "./L5-value";
 
 
 // Purpose: Check that type expressions are equivalent
@@ -224,10 +225,26 @@ export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
         bind(checkEqualType(exp.var.texp, valTE, exp), (_ok: true) =>
             makeOk(makeVoidTExp())));
 
+
+// Purpose: Compute the type of a quoted expression (LitExp)
+export const typeofQuote = (exp: any): Result<TExp> =>
+    typeofSExpValue(exp.val);
+
+const typeofSExpValue = (val: any): Result<TExp> =>
+    typeof val === "number" ? makeOk(makeNumTExp()) :
+    typeof val === "boolean" ? makeOk(makeBoolTExp()) :
+    typeof val === "string" ? makeOk(makeStrTExp()) :
+    isSymbolSExp(val) ? makeOk(makeStrTExp()) :
+    isEmptySExp(val) ? makeOk(makeVoidTExp()) :
+    isCompoundSExp(val) ? bind(typeofSExpValue(val.val1), (left: TExp) =>
+        bind(typeofSExpValue(val.val2), (right: TExp) =>
+            makeOk(makePairTExp(left, right)))) :
+    makeFailure(`Unknown quoted value: ${val}`);
+
 // Purpose: compute the type of a program
 // Typing rule:
 // TODO - write the true definition
-export const L5programTypeof = (exp: Program, tenv: TEnv): Result<TExp> =>
+export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
     typeofSeq(exp.exps, tenv);
 
 

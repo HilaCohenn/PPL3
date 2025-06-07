@@ -144,6 +144,8 @@ export type LitExp = {tag: "LitExp"; val: SExpValue; }
 export const makeLitExp = (val: SExpValue): LitExp => ({tag: "LitExp", val: val});
 export const isLitExp = (x: any): x is LitExp => x.tag === "LitExp";
 
+export const isQuoteExp = (x: any): x is LitExp => isLitExp(x);
+
 export type LetrecExp = {tag: "LetrecExp"; bindings: Binding[]; body: CExp[]; }
 export const makeLetrecExp = (bindings: Binding[], body: CExp[]): LetrecExp =>
     ({tag: "LetrecExp", bindings: bindings, body: body});
