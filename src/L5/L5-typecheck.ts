@@ -1,10 +1,11 @@
 // L5-typecheck
 // ========================================================
-import { equals, map, zipWith } from 'ramda';
+import { equals, is, map, zipWith } from 'ramda';
 import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNumExp,
          isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parseL5Exp, unparse,
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
-         Parsed, PrimOp, ProcExp, Program, StrExp } from "./L5-ast";
+         Parsed, PrimOp, ProcExp, Program, StrExp, 
+         isExp} from "./L5-ast";
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp,
@@ -221,4 +222,33 @@ export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
 // Typing rule:
 // TODO - write the true definition
 export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
-    makeFailure("TODO");
+    typeofSeq(exp.exps, tenv);
+
+const typeofSeq = (exps: List<Exp>, tenv: TEnv): Result<TExp> => {
+    if (!isNonEmptyList<Exp>(exps)) {
+        return makeFailure("Unexpected empty list of expressions");
+    }
+    const exp1: Exp = first(exps) as Exp;
+    
+    const restExps: List<Exp> = rest(exps);
+
+    if (isEmpty(restExps) && isExp(exp1)) {
+        return isDefineExp(exp1) ?
+            bind(typeofDefine(exp1, tenv), _ =>
+                makeFailure("Program can't end with define")) :
+            typeofExp(exp1, tenv);
+    } else {
+        return isDefineExp(exp1) ?
+            bind(typeofDefine(exp1, tenv), _ =>
+                typeofSeq(restExps, makeExtendTEnv(
+                    [exp1.var.var],
+                    [exp1.var.texp],
+                    tenv
+                ))
+            ) :
+            bind(typeofExp(exp1, tenv), _ =>
+                typeofSeq(restExps, tenv)
+            );
+    }
+};
+
