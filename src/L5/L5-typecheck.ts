@@ -10,7 +10,8 @@ import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp,
          BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, makePairTExp, 
-         isPairTExp} from "./TExp";
+         isPairTExp,
+         makeLiteralTExp} from "./TExp";
 import { isEmpty, allT, first, rest, NonEmptyList, List, isNonEmptyList } from '../shared/list';
 import { Result, makeFailure, bind, makeOk, zipWithResult } from '../shared/result';
 import { parse as p } from "../shared/parser";
@@ -258,14 +259,22 @@ export const typeofQuote = (exp: any): Result<TExp> =>
     typeofSExpValue(exp.val);
 
 const typeofSExpValue = (val: any): Result<TExp> =>
-    typeof val === "number" ? makeOk(makeNumTExp()) :
-    typeof val === "boolean" ? makeOk(makeBoolTExp()) :
+    typeof val === "number" ? makeOk(makeLiteralTExp()) :  // Change all literals to LiteralTExp
+    typeof val === "boolean" ? makeOk(makeLiteralTExp()) :
     typeof val === "string" ? makeOk(makeStrTExp()) :
-    isSymbolSExp(val) ? makeOk(makeStrTExp()) :
+    isSymbolSExp(val) ? makeOk(makeLiteralTExp()) :
     isEmptySExp(val) ? makeOk(makeVoidTExp()) :
-    isCompoundSExp(val) ? bind(typeofSExpValue(val.val1), (left: TExp) =>
-        bind(typeofSExpValue(val.val2), (right: TExp) =>
-            makeOk(makePairTExp(left, right)))) :
+    isCompoundSExp(val) ? bind(typeofSExpValue(val.val1), (_left: TExp) =>
+        bind(typeofSExpValue(val.val2), (_right: TExp) =>
+            makeOk(makePairTExp(
+                // Special handling for numbers and booleans in pairs
+                typeof val.val1 === "number" ? makeNumTExp() :
+                typeof val.val1 === "boolean" ? makeBoolTExp() :
+                makeLiteralTExp(),
+                typeof val.val2 === "number" ? makeNumTExp() :
+                typeof val.val2 === "boolean" ? makeBoolTExp() :
+                makeLiteralTExp()
+            )))) :
     makeFailure(`Unknown quoted value: ${val}`);
 
 // Purpose: compute the type of a program

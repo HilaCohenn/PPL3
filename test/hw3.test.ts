@@ -147,7 +147,7 @@ describe("L5 Type Checker", () => {
         });
     });
 
-    describe.only("Quote Expression Tests", () => {
+    describe("Quote Expression Tests", () => {
 
         it("should correctly type a quoted pair of numbers", () => {
             assert.deepEqual(getTypeofProgram("(L5 (quote (4 . 7)))"), "(Pair number number)");

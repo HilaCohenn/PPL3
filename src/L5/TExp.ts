@@ -39,7 +39,11 @@ import { Result, bind, makeOk, makeFailure, mapResult, mapv } from "../shared/re
 import { parse as p } from "../shared/parser";
 import { format } from "../shared/format";
 
-export type TExp =  AtomicTExp | CompoundTExp | TVar | PairTExp;
+export type LiteralTExp = { tag: "LiteralTExp" };
+export const makeLiteralTExp = (): LiteralTExp => ({tag: "LiteralTExp"});
+export const isLiteralTExp = (x: any): x is LiteralTExp => x.tag === "LiteralTExp";
+
+export type TExp =  AtomicTExp | CompoundTExp | TVar | PairTExp | LiteralTExp;
 export const isTExp = (x: any): x is TExp => isAtomicTExp(x) || isCompoundTExp(x) || isTVar(x);
 
 export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp;
@@ -224,6 +228,7 @@ export const unparseTExp = (te: TExp): Result<string> => {
         isBoolTExp(x) ? makeOk('boolean') :
         isStrTExp(x) ? makeOk('string') :
         isVoidTExp(x) ? makeOk('void') :
+        isLiteralTExp(x) ? makeOk('literal') :  // Change from 'LiteralTExp' to 'literal'
         isEmptyTVar(x) ? makeOk(x.var) :
         isTVar(x) ? up(tvarContents(x)) :
         isProcTExp(x) ? bind(unparseTuple(x.paramTEs), (paramTEs: string[]) =>
@@ -235,7 +240,7 @@ export const unparseTExp = (te: TExp): Result<string> => {
                             mapv(unparseTExp(x.right), (right: string) =>
                                 `(Pair ${left} ${right})`)) :
         x === undefined ? makeFailure("Undefined TVar") :
-        x;
+        makeFailure(`Unexpected type expression in unparseTExp: ${JSON.stringify(x)}`);
 
     const unparsed = up(te);
     return mapv(unparsed,
