@@ -39,7 +39,7 @@ import { Result, bind, makeOk, makeFailure, mapResult, mapv } from "../shared/re
 import { parse as p } from "../shared/parser";
 import { format } from "../shared/format";
 
-export type TExp =  AtomicTExp | CompoundTExp | TVar;
+export type TExp =  AtomicTExp | CompoundTExp | TVar | PairTExp;
 export const isTExp = (x: any): x is TExp => isAtomicTExp(x) || isCompoundTExp(x) || isTVar(x);
 
 export type AtomicTExp = NumTExp | BoolTExp | StrTExp | VoidTExp;
@@ -68,6 +68,14 @@ export const isStrTExp = (x: any): x is StrTExp => x.tag === "StrTExp";
 export type VoidTExp = { tag: "VoidTExp" };
 export const makeVoidTExp = (): VoidTExp => ({tag: "VoidTExp"});
 export const isVoidTExp = (x: any): x is VoidTExp => x.tag === "VoidTExp";
+
+export interface PairTExp { tag: "PairTExp"; left: TExp; right: TExp;}
+export const isPairTExp = (x: any): x is PairTExp => x.tag === "PairTExp";
+export const makePairTExp = (left: TExp, right: TExp): PairTExp => ({
+    tag: "PairTExp",
+    left,
+    right
+});
 
 // proc-te(param-tes: list(te), return-te: te)
 export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; };
@@ -163,9 +171,18 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
 ;; expected exactly one -> in the list
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
-const parseCompoundTExp = (texps: Sexp[]): Result<ProcTExp> => {
+export const parseCompoundTExp = (texps: Sexp[]): Result<TExp> => 
+    isArray(texps) && texps[0] === 'Pair'
+        ? (texps.length !== 3
+            ? makeFailure(`Pair type expression must have exactly two elements - got ${format(texps)}`)
+            : bind(parseTExp(texps[1]), (left: TExp) =>
+                bind(parseTExp(texps[2]), (right: TExp) =>
+                    makeOk(makePairTExp(left, right)))))
+        : parseProcTExp(texps);
+
+const parseProcTExp = (texps: Sexp[]): Result<TExp> => {
     const pos = texps.indexOf('->');
-    return (pos === -1)  ? makeFailure(`Procedure type expression without -> - ${format(texps)}`) :
+    return (pos === -1) ? makeFailure(`Procedure type expression without -> - ${format(texps)}`) :
            (pos === 0) ? makeFailure(`No param types in proc texp - ${format(texps)}`) :
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${format(texps)}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${format(texps)}`) :
@@ -214,6 +231,9 @@ export const unparseTExp = (te: TExp): Result<string> => {
                                 [...paramTEs, '->', returnTE])) :
         isEmptyTupleTExp(x) ? makeOk("Empty") :
         isNonEmptyTupleTExp(x) ? unparseTuple(x.TEs) :
+        isPairTExp(x) ? bind(unparseTExp(x.left), (left: string) =>
+                            mapv(unparseTExp(x.right), (right: string) =>
+                                `(Pair ${left} ${right})`)) :
         x === undefined ? makeFailure("Undefined TVar") :
         x;
 
