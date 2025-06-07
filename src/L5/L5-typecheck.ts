@@ -1,7 +1,7 @@
 // L5-typecheck
 // ========================================================
 import { equals, is, map, zipWith } from 'ramda';
-import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isQuoteExp, isNumExp,
+import { parseL5Program, isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isQuoteExp, isNumExp,
          isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parseL5Exp, unparse,
          AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
          Parsed, PrimOp, ProcExp, Program, StrExp, 
@@ -15,6 +15,7 @@ import { Result, makeFailure, bind, makeOk, zipWithResult } from '../shared/resu
 import { parse as p } from "../shared/parser";
 import { format } from '../shared/format';
 import { isCompoundSExp, isEmptySExp, isSymbolSExp } from "./L5-value";
+import exp from 'constants';
 
 
 // Purpose: Check that type expressions are equivalent
@@ -247,7 +248,11 @@ const typeofSExpValue = (val: any): Result<TExp> =>
 export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
     typeofSeq(exp.exps, tenv);
 
-
+export const L5programTypeof = (exp: string): Result<string> => 
+    bind(p(exp), (x) =>
+    bind(parseL5Program(x), (e: Program) =>
+      bind(typeofProgram(e, makeEmptyTEnv()), unparseTExp)
+    ));
 
 export const typeofSeq = (exps: List<Exp>, tenv: TEnv): Result<TExp> => {
     if (!isNonEmptyList<Exp>(exps)) {
