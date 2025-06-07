@@ -9,7 +9,8 @@ import { parseL5Program, isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp,
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp,
-         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, makePairTExp } from "./TExp";
+         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, makePairTExp, 
+         isPairTExp} from "./TExp";
 import { isEmpty, allT, first, rest, NonEmptyList, List, isNonEmptyList } from '../shared/list';
 import { Result, makeFailure, bind, makeOk, zipWithResult } from '../shared/result';
 import { parse as p } from "../shared/parser";
@@ -154,17 +155,40 @@ export const typeofProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
 // We also check the correct number of arguments is passed.
 export const typeofApp = (app: AppExp, tenv: TEnv): Result<TExp> =>
     bind(typeofExp(app.rator, tenv), (ratorTE: TExp) => {
-        if (! isProcTExp(ratorTE)) {
+        if (!isProcTExp(ratorTE)) {
             return bind(unparseTExp(ratorTE), (rator: string) =>
-                        bind(unparse(app), (exp: string) =>
-                            makeFailure<TExp>(`Application of non-procedure: ${rator} in ${exp}`)));
+                bind(unparse(app), (exp: string) =>
+                    makeFailure<TExp>(`Application of non-procedure: ${rator} in ${exp}`)));
         }
         if (app.rands.length !== ratorTE.paramTEs.length) {
-            return bind(unparse(app), (exp: string) => makeFailure<TExp>(`Wrong parameter numbers passed to proc: ${exp}`));
+            return bind(unparse(app), (exp: string) => 
+                makeFailure<TExp>(`Wrong parameter numbers passed to proc: ${exp}`));
         }
-        const constraints = zipWithResult((rand, trand) => bind(typeofExp(rand, tenv), (typeOfRand: TExp) => 
-                                                                checkEqualType(typeOfRand, trand, app)),
-                                          app.rands, ratorTE.paramTEs);
+
+        // Special handling for cons, car, cdr
+        if (isPrimOp(app.rator)) {
+            if (app.rator.op === "cons") {
+                return bind(typeofExp(app.rands[0], tenv), (left: TExp) =>
+                    bind(typeofExp(app.rands[1], tenv), (right: TExp) =>
+                        makeOk(makePairTExp(left, right))));
+            }
+            else if (app.rator.op === "car") {
+                return bind(typeofExp(app.rands[0], tenv), (argTE: TExp) =>
+                    isPairTExp(argTE) ? makeOk(argTE.left) :
+                    makeFailure<TExp>(`Car expects a pair, got ${JSON.stringify(argTE)}`));
+            }
+            else if (app.rator.op === "cdr") {
+                return bind(typeofExp(app.rands[0], tenv), (argTE: TExp) =>
+                    isPairTExp(argTE) ? makeOk(argTE.right) :
+                    makeFailure<TExp>(`Cdr expects a pair, got ${JSON.stringify(argTE)}`));
+            }
+        }
+
+        // Default case: check all arguments against parameter types
+        const constraints = zipWithResult((rand, trand) => 
+            bind(typeofExp(rand, tenv), (typeOfRand: TExp) =>
+                checkEqualType(typeOfRand, trand, app)),
+            app.rands, ratorTE.paramTEs);
         return bind(constraints, _ => makeOk(ratorTE.returnTE));
     });
 
@@ -221,10 +245,12 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
 // Typing rule:
 //   (define (var : texp) val)
 // TODO - write the true definition
-export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> =>
-    bind(typeofExp(exp.val, tenv), (valTE: TExp) =>
+export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> => {
+    const valTE = typeofExp(exp.val, makeExtendTEnv([exp.var.var], [exp.var.texp], tenv));
+    return bind(valTE, (valTE: TExp) =>
         bind(checkEqualType(exp.var.texp, valTE, exp), (_ok: true) =>
             makeOk(makeVoidTExp())));
+};
 
 
 // Purpose: Compute the type of a quoted expression (LitExp)
